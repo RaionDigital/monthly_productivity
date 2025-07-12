@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-07-12 11:25:24.134725",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "execution_progress_section",
+  "sales_invoice",
+  "customer",
+  "execution_percentage",
+  "cumulative_execution",
+  "invoice_total",
+  "actual_executed_value",
+  "delivery_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "execution_progress_section",
+   "fieldtype": "Section Break",
+   "label": "Execution Progress"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "sales_invoice.customer_name",
+   "fieldname": "customer",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer"
+  },
+  {
+   "fieldname": "execution_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Execution Percentage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cumulative_execution",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cumulative Execution",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "sales_invoice.grand_total",
+   "fieldname": "invoice_total",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Invoice Total"
+  },
+  {
+   "fetch_if_empty": 1,
+   "fieldname": "actual_executed_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Actual Executed Value",
+   "read_only": 1
+  },
+  {
+   "default": "Not Delivered",
+   "fieldname": "delivery_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Delivery Status",
+   "options": "Delivered\nNot Delivered\nNot Started Yet",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-07-12 12:39:58.417319",
+ "modified_by": "Administrator",
+ "module": "Monthly Productivity",
+ "name": "Execution Schedule Entry",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

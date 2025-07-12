@@ -1,0 +1,50 @@
+{
+ "add_total_row": 0,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2025-07-12 12:51:42.813502",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "mandatory": 1,
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "mandatory": 1,
+   "wildcard_filter": 0
+  }
+ ],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letterhead": null,
+ "modified": "2025-07-12 13:41:06.585020",
+ "modified_by": "Administrator",
+ "module": "Monthly Productivity",
+ "name": "Monthly Productivity Summary",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "query": "WITH detail_rows AS (\r\n  SELECT\r\n    ed.parent AS \"Doc:Link/Monthly Productivity\",\r\n    ed.sales_invoice AS \"Invoice:Link/Sales Invoice\",\r\n    si.customer_name AS \"Customer:Data\",\r\n    mp.report_month AS \"Month:Date\",\r\n    ed.execution_percentage AS \"Execution:Percent\",\r\n    si.grand_total AS \"Invoice Total:Currency\",\r\n    si.grand_total * ed.execution_percentage / 100 AS \"Executed Value:Currency\",\r\n    COALESCE((\r\n      SELECT SUM(prev.execution_percentage)\r\n      FROM `tabExecution Schedule Entry` prev\r\n      JOIN `tabMonthly Productivity` prev_mp ON prev.parent = prev_mp.name\r\n      WHERE prev.sales_invoice = ed.sales_invoice\r\n        AND prev_mp.docstatus = 1\r\n        AND prev_mp.report_month <= mp.report_month\r\n    ), 0) AS \"Cumulative:Percent\",\r\n    NULL AS \"Total Purchases:Currency\",\r\n    NULL AS \"Other Expenses:Currency\",\r\n    NULL AS \"Total Expenses:Currency\",\r\n    NULL AS \"Profit or Loss:Currency\",\r\n    NULL AS \"Commission:Currency\"\r\n  FROM `tabExecution Schedule Entry` ed\r\n  JOIN `tabMonthly Productivity` mp ON ed.parent = mp.name AND mp.docstatus = 1\r\n  LEFT JOIN `tabSales Invoice` si ON si.name = ed.sales_invoice AND si.docstatus = 1\r\n  WHERE mp.report_month BETWEEN %(from_date)s AND %(to_date)s\r\n),\r\nsummary_row AS (\r\n  SELECT\r\n    NULL AS \"Doc:Link/Monthly Productivity\",\r\n    NULL AS \"Invoice:Link/Sales Invoice\",\r\n    'TOTAL' AS \"Customer:Data\",\r\n    NULL AS \"Month:Date\",\r\n    NULL AS \"Execution:Percent\",\r\n\r\n    COALESCE((\r\n      SELECT SUM(si.grand_total)\r\n      FROM `tabExecution Schedule Entry` ed\r\n      JOIN `tabMonthly Productivity` mp ON ed.parent = mp.name AND mp.docstatus = 1\r\n      LEFT JOIN `tabSales Invoice` si ON si.name = ed.sales_invoice AND si.docstatus = 1\r\n      WHERE mp.report_month BETWEEN %(from_date)s AND %(to_date)s\r\n    ), 0) AS \"Invoice Total:Currency\",\r\n\r\n    COALESCE((\r\n      SELECT SUM(si.grand_total * ed.execution_percentage / 100)\r\n      FROM `tabExecution Schedule Entry` ed\r\n      JOIN `tabMonthly Productivity` mp ON ed.parent = mp.name AND mp.docstatus = 1\r\n      LEFT JOIN `tabSales Invoice` si ON si.name = ed.sales_invoice AND si.docstatus = 1\r\n      WHERE mp.report_month BETWEEN %(from_date)s AND %(to_date)s\r\n    ), 0) AS \"Executed Value:Currency\",\r\n\r\n    NULL AS \"Cumulative:Percent\",\r\n\r\n    -- Total Purchases\r\n    COALESCE((\r\n      SELECT SUM(pi.grand_total)\r\n      FROM `tabPurchase Invoice` pi\r\n      WHERE pi.docstatus = 1 AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n    ), 0) AS \"Total Purchases:Currency\",\r\n\r\n    -- Other Expenses (62\u201369)\r\n    COALESCE((\r\n      SELECT SUM(jea.debit)\r\n      FROM `tabJournal Entry Account` jea\r\n      JOIN `tabJournal Entry` je ON je.name = jea.parent\r\n      WHERE je.docstatus = 1\r\n        AND LEFT(jea.account, 2) BETWEEN '62' AND '69'\r\n        AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n    ), 0) AS \"Other Expenses:Currency\",\r\n\r\n    -- Total Expenses\r\n    (\r\n      COALESCE((\r\n        SELECT SUM(pi.grand_total)\r\n        FROM `tabPurchase Invoice` pi\r\n        WHERE pi.docstatus = 1 AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n      ), 0)\r\n      +\r\n      COALESCE((\r\n        SELECT SUM(jea.debit)\r\n        FROM `tabJournal Entry Account` jea\r\n        JOIN `tabJournal Entry` je ON je.name = jea.parent\r\n        WHERE je.docstatus = 1\r\n          AND LEFT(jea.account, 2) BETWEEN '62' AND '69'\r\n          AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n      ), 0)\r\n    ) AS \"Total Expenses:Currency\",\r\n\r\n    -- Profit or Loss\r\n    (\r\n      COALESCE((\r\n        SELECT SUM(si.grand_total * ed.execution_percentage / 100)\r\n        FROM `tabExecution Schedule Entry` ed\r\n        JOIN `tabMonthly Productivity` mp ON ed.parent = mp.name AND mp.docstatus = 1\r\n        LEFT JOIN `tabSales Invoice` si ON si.name = ed.sales_invoice AND si.docstatus = 1\r\n        WHERE mp.report_month BETWEEN %(from_date)s AND %(to_date)s\r\n      ), 0)\r\n      -\r\n      (\r\n        COALESCE((\r\n          SELECT SUM(pi.grand_total)\r\n          FROM `tabPurchase Invoice` pi\r\n          WHERE pi.docstatus = 1 AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n        ), 0)\r\n        +\r\n        COALESCE((\r\n          SELECT SUM(jea.debit)\r\n          FROM `tabJournal Entry Account` jea\r\n          JOIN `tabJournal Entry` je ON je.name = jea.parent\r\n          WHERE je.docstatus = 1\r\n            AND LEFT(jea.account, 2) BETWEEN '62' AND '69'\r\n            AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n        ), 0)\r\n      )\r\n    ) AS \"Profit or Loss:Currency\",\r\n\r\n    -- Commission\r\n    COALESCE((\r\n      SELECT SUM(\r\n        (\r\n          (si.grand_total * ed.execution_percentage / 100)\r\n          -\r\n          (\r\n            COALESCE((\r\n              SELECT SUM(pi.grand_total)\r\n              FROM `tabPurchase Invoice` pi\r\n              WHERE pi.docstatus = 1 AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n            ), 0)\r\n            +\r\n            COALESCE((\r\n              SELECT SUM(jea.debit)\r\n              FROM `tabJournal Entry Account` jea\r\n              JOIN `tabJournal Entry` je ON je.name = jea.parent\r\n              WHERE je.docstatus = 1\r\n                AND LEFT(jea.account, 2) BETWEEN '62' AND '69'\r\n                AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s\r\n            ), 0)\r\n          )\r\n        ) * (mp.commission_percentage / 100)\r\n      )\r\n      FROM `tabExecution Schedule Entry` ed\r\n      JOIN `tabMonthly Productivity` mp ON ed.parent = mp.name AND mp.docstatus = 1\r\n      LEFT JOIN `tabSales Invoice` si ON si.name = ed.sales_invoice AND si.docstatus = 1\r\n      WHERE mp.report_month BETWEEN %(from_date)s AND %(to_date)s\r\n    ), 0) AS \"Commission:Currency\"\r\n)\r\n\r\nSELECT * FROM detail_rows\r\nUNION ALL\r\nSELECT * FROM summary_row\r\nORDER BY \"Invoice\", \"Month\";\r\n",
+ "ref_doctype": "Monthly Productivity",
+ "report_name": "Monthly Productivity Summary",
+ "report_type": "Query Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Sales Master Manager"
+  },
+  {
+   "role": "Purchase Master Manager"
+  }
+ ],
+ "timeout": 0
+}
