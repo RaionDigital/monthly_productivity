@@ -7,9 +7,8 @@ from frappe.utils import getdate, date_diff
 from calendar import month_name
 
 def execute(filters=None):
-	# --- MODIFIED: Logic now branches based on the 'view_mode' filter ---
+	# Logic to switch between views remains the same
 	if filters.get("view_mode") == "Detailed Invoice View":
-		# Ensure a sales invoice is selected for this mode.
 		if not filters.get("sales_invoice"):
 			frappe.msgprint(_("Please select a Sales Invoice for the Detailed View."), indicator='orange', title=_('Filter Required'))
 			return [], [], None, None, None
@@ -19,17 +18,15 @@ def execute(filters=None):
 		chart = get_invoice_progress_chart(data)
 		return columns, data, None, chart, None
 	
-	# Default to the Summary View.
 	else:
 		is_yearly_view = date_diff(filters.get("to_date"), filters.get("from_date")) > 365
 		columns = get_summary_columns(is_yearly_view)
 		data, chart, report_summary = get_summary_data(filters, is_yearly_view)
 		return columns, data, None, chart, report_summary
 
-# --- Functions for Invoice Progress (Detailed View) ---
+# --- Functions for Invoice Progress (Detailed View) - UNCHANGED ---
 
 def get_invoice_progress_columns():
-	"""Defines columns for the detailed invoice progress view."""
 	return [
 		{"label": _("Month"), "fieldname": "month", "fieldtype": "Data", "width": 200},
 		{"label": _("Execution % This Period"), "fieldname": "execution_percentage", "fieldtype": "Percent", "width": 200},
@@ -38,33 +35,19 @@ def get_invoice_progress_columns():
 	]
 
 def get_invoice_progress_data(filters):
-	"""Fetches data for the detailed invoice progress view."""
 	progress_entries = frappe.db.sql("""
-		SELECT
-			mp.name as monthly_productivity_doc,
-			mp.report_month,
-			ese.execution_percentage,
-			ese.cumulative_execution
-		FROM `tabExecution Schedule Entry` as ese
-		JOIN `tabMonthly Productivity` as mp ON ese.parent = mp.name
-		WHERE ese.sales_invoice = %(sales_invoice)s AND mp.docstatus = 1
-		ORDER BY mp.report_month ASC
+		SELECT mp.name as monthly_productivity_doc, mp.report_month, ese.execution_percentage, ese.cumulative_execution
+		FROM `tabExecution Schedule Entry` as ese JOIN `tabMonthly Productivity` as mp ON ese.parent = mp.name
+		WHERE ese.sales_invoice = %(sales_invoice)s AND mp.docstatus = 1 ORDER BY mp.report_month ASC
 	""", filters, as_dict=1)
-
 	report_data = []
 	for entry in progress_entries:
 		year, month_num, day = str(entry.report_month).split('-')
 		formatted_month = f"{_(month_name[int(month_num)])} {year}"
-		report_data.append({
-			"month": formatted_month,
-			"execution_percentage": entry.execution_percentage,
-			"cumulative_execution": entry.cumulative_execution,
-			"monthly_productivity_doc": entry.monthly_productivity_doc,
-		})
+		report_data.append({"month": formatted_month, "execution_percentage": entry.execution_percentage, "cumulative_execution": entry.cumulative_execution, "monthly_productivity_doc": entry.monthly_productivity_doc})
 	return report_data
 
 def get_invoice_progress_chart(data):
-	"""Prepares the chart for the detailed invoice progress view."""
 	if not data: return None
 	labels = [row['month'] for row in data]
 	datasets = [{"name": _("Execution % This Period"),"values": [row['execution_percentage'] for row in data]},{"name": _("Cumulative Execution %"),"values": [row['cumulative_execution'] for row in data]}]
@@ -74,7 +57,6 @@ def get_invoice_progress_chart(data):
 # --- Functions for Financial Summary (Standard View) ---
 
 def get_summary_columns(is_yearly_view):
-	"""Defines columns for the standard summary view."""
 	period_label = _("Year") if is_yearly_view else _("Month")
 	return [
 		{"label": period_label, "fieldname": "period", "fieldtype": "Data", "width": 180},
@@ -86,55 +68,79 @@ def get_summary_columns(is_yearly_view):
 	]
 
 def get_summary_data(filters, is_yearly_view):
-	"""Fetches and processes all data for the standard summary view."""
-	conditions = get_conditions(filters)
 	date_format = "'%%Y'" if is_yearly_view else "'%%Y-%%m'"
+	
+	sql_filters = {
+		"company": filters.get("company"),
+		"from_date": filters.get("from_date"),
+		"to_date": filters.get("to_date")
+	}
 
+	# Query 1: Get Executed Value
 	executed_value_data = frappe.db.sql(f"""
-		SELECT
-			DATE_FORMAT(mp.report_month, {date_format}) AS period_group,
-			SUM(ese.actual_executed_value) AS total_executed_value,
-			mp.commission_percentage
+		SELECT DATE_FORMAT(mp.report_month, {date_format}) AS period_group, SUM(ese.actual_executed_value) AS total_executed_value, mp.commission_percentage
 		FROM `tabMonthly Productivity` mp JOIN `tabExecution Schedule Entry` ese ON mp.name = ese.parent
-		WHERE mp.docstatus = 1 {conditions}
+		WHERE mp.docstatus = 1 AND mp.company = %(company)s AND mp.report_month BETWEEN %(from_date)s AND %(to_date)s
 		GROUP BY period_group, mp.commission_percentage
-	""", filters, as_dict=1)
+	""", sql_filters, as_dict=1)
 
+	# Query 2: Get Total Purchases from Purchase Invoices
+	purchases_data = frappe.db.sql(f"""
+		SELECT DATE_FORMAT(pi.posting_date, {date_format}) as period_group, SUM(pi.base_grand_total) as total_purchases
+		FROM `tabPurchase Invoice` pi
+		WHERE pi.docstatus = 1 AND pi.company = %(company)s AND pi.posting_date BETWEEN %(from_date)s AND %(to_date)s
+		GROUP BY period_group
+	""", sql_filters, as_dict=1)
+
+	# --- MODIFIED: Query 3 now filters for accounts 62-69 ---
+	other_expenses_data = frappe.db.sql(f"""
+		SELECT DATE_FORMAT(je.posting_date, {date_format}) as period_group, SUM(jea.debit_in_account_currency) as total_other_expenses
+		FROM `tabJournal Entry Account` jea JOIN `tabJournal Entry` je ON je.name = jea.parent
+		WHERE je.docstatus = 1 AND je.company = %(company)s AND je.posting_date BETWEEN %(from_date)s AND %(to_date)s
+		AND LEFT(jea.account, 2) IN ('62', '63', '64', '65', '66', '67', '68', '69')
+		GROUP BY period_group
+	""", sql_filters, as_dict=1)
+
+	# --- Merge all data into a single dictionary ---
 	period_summary = {}
 	for row in executed_value_data:
 		period = row.period_group
-		if period not in period_summary:
-			period_summary[period] = {"period": period, "executed_value": 0, "total_purchases": 0, "other_expenses": 0, "commission_percentage": row.commission_percentage}
-		period_summary[period]["executed_value"] += row.total_executed_value
+		if period not in period_summary: period_summary[period] = frappe._dict({"executed_value": 0, "total_purchases": 0, "other_expenses": 0})
+		period_summary[period].executed_value += row.total_executed_value
+		period_summary[period].commission_percentage = row.commission_percentage
 
+	for row in purchases_data:
+		period = row.period_group
+		if period not in period_summary: period_summary[period] = frappe._dict({"executed_value": 0, "total_purchases": 0, "other_expenses": 0})
+		period_summary[period].total_purchases += row.total_purchases
+
+	for row in other_expenses_data:
+		period = row.period_group
+		if period not in period_summary: period_summary[period] = frappe._dict({"executed_value": 0, "total_purchases": 0, "other_expenses": 0})
+		period_summary[period].other_expenses += row.total_other_expenses
+
+	# --- Process the merged data ---
 	report_data = []
-	for period in sorted(period_summary.keys()):
-		values = period_summary[period]
-		profit_loss = values["executed_value"] - values["total_purchases"] - values["other_expenses"]
+	for period, values in sorted(period_summary.items()):
+		profit_loss = values.executed_value - values.total_purchases - values.other_expenses
 		commission = profit_loss * (values.get("commission_percentage", 0) / 100.0)
-		year, month_num = (values['period'], '01') if is_yearly_view else values['period'].split('-')
+		year, month_num = (period, '01') if is_yearly_view else period.split('-')
 		formatted_period = year if is_yearly_view else f"{_(month_name[int(month_num)])} {year}"
-		report_data.append({"period": formatted_period, "executed_value": values["executed_value"], "total_purchases": values["total_purchases"], "other_expenses": values["other_expenses"], "profit_loss": profit_loss, "commission": commission})
+		report_data.append({"period": formatted_period, "executed_value": values.executed_value, "total_purchases": values.total_purchases, "other_expenses": values.other_expenses, "profit_loss": profit_loss, "commission": commission})
 
 	chart = get_chart_data(report_data)
 	summary = get_report_summary(report_data)
 	
-	if len(report_data) > 1:
+	if report_data:
 		total_row = {"period": "<b>" + _("Total") + "</b>", "executed_value": summary[0]['value'], "total_purchases": sum(r.get("total_purchases", 0) for r in report_data), "other_expenses": sum(r.get("other_expenses", 0) for r in report_data), "profit_loss": summary[1]['value'], "commission": summary[2]['value']}
 		report_data.append(total_row)
 		
 	return report_data, chart, summary
 
-def get_conditions(filters):
-	conditions = ""
-	if filters.get("company"): conditions += " AND mp.company = %(company)s"
-	if filters.get("from_date") and filters.get("to_date"): conditions += " AND mp.report_month BETWEEN %(from_date)s AND %(to_date)s"
-	return conditions
-
 def get_chart_data(data):
 	if not data: return None
 	labels = [row['period'] for row in data if "Total" not in row.get("period", "")]
-	datasets = [{"name": _("Executed Value"), "values": [row['executed_value'] for row in data if "Total" not in row.get("period", "")]},{"name": _("Profit or Loss"), "values": [row['profit_loss'] for row in data if "Total" not in row.get("period", "")]},{"name": _("Commission"), "values": [row['commission'] for row in data if "Total" not in row.get("period", "")]}]
+	datasets = [{"name": _("Executed Value"), "values": [r['executed_value'] for r in data if "Total" not in r.get("period","")]},{"name": _("Profit or Loss"), "values": [r['profit_loss'] for r in data if "Total" not in r.get("period","")]},{"name": _("Commission"), "values": [r['commission'] for r in data if "Total" not in r.get("period","")]}]
 	return {"data": {"labels": labels, "datasets": datasets}, "type": "bar", "height": 300}
 
 def get_report_summary(data):
