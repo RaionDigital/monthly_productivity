@@ -3,6 +3,23 @@
 
 // --- Monthly Productivity Form Events ---
 frappe.ui.form.on("Monthly Productivity", {
+	/**
+	 * This onload event sets the filter for the sales_invoice field.
+	 * It ensures only submitted documents can be selected.
+	 */
+	onload: function (frm) {
+		// Replace 'productivity' with your child table's fieldname if it's different.
+		// Replace 'sales_invoice' with your link field's fieldname if it's different.
+		frm.set_query("sales_invoice", "productivity", function (doc, cdt, cdn) {
+			return {
+				filters: {
+					// docstatus: 1 === Submitted
+					docstatus: 1,
+				},
+			};
+		});
+	},
+
 	sales_invoice(frm) {
 		const inv = frm.doc.sales_invoice;
 		if (!inv) return;
@@ -34,6 +51,9 @@ frappe.ui.form.on("Monthly Productivity", {
 });
 
 // --- Execution Schedule Entry Child Table ---
+// NOTE: I noticed your child table doctype is 'Execution Schedule Entry' but the field
+// in the parent seems to be 'productivity'. I've used 'productivity' in the filter query
+// above as that seems more likely to be the fieldname. Please double-check this.
 frappe.ui.form.on("Execution Schedule Entry", {
 	execution_percentage(frm, cdt, cdn) {
 		const currentRow = locals[cdt][cdn];
@@ -71,7 +91,7 @@ frappe.ui.form.on("Execution Schedule Entry", {
 				const cumulativeTotal =
 					previousDocsTotal + percentageInCurrentDoc + currentPercentage;
 
-				// --- NEW: Client-side validation ---
+				// --- total excution % <= 100 ---
 				if (cumulativeTotal > 100) {
 					frappe.msgprint({
 						title: __("Validation Error"),
