@@ -242,3 +242,4 @@ app_license = "mit"
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+translated_languages = ["ar", "pt", "pt-BR", "fr", "ru"]
