@@ -10,6 +10,8 @@
   "sales_invoice",
   "customer",
   "execution_percentage",
+  "sales_person",
+  "sales_person_commission",
   "cumulative_execution",
   "invoice_total",
   "actual_executed_value",
@@ -47,6 +49,22 @@
    "reqd": 1
   },
   {
+   "fieldname": "sales_person",
+   "fieldtype": "Link",
+   "label": "Sales Person",
+   "options": "Sales Person",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_person_commission",
+   "fieldtype": "Percent",
+   "label": "Sales Person Commission %",
+   "fetch_from": "sales_person.commission_rate",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
    "fieldname": "cumulative_execution",
    "fieldtype": "Percent",
    "in_list_view": 1,
@@ -79,14 +97,14 @@
    "in_standard_filter": 1,
    "label": "Delivery Status",
    "options": "Delivered\nNot Delivered\nNot Started Yet",
-   "reqd": 1
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-12 12:39:58.417319",
+ "modified": "2025-08-13 10:55:00.000000",
  "modified_by": "Administrator",
  "module": "Monthly Productivity",
  "name": "Execution Schedule Entry",

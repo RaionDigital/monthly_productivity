@@ -1,0 +1,54 @@
+{
+  "doctype": "DocType",
+  "name": "Monthly Productivity Commission Row",
+  "module": "Monthly Productivity",
+  "istable": 1,
+  "track_changes": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "shareholder",
+    "commission_percentage",
+    "commission_amount",
+    "notes"
+  ],
+  "fields": [
+    {
+      "fieldname": "shareholder",
+      "fieldtype": "Link",
+      "label": "Shareholder",
+      "options": "Shareholder",
+      "in_list_view": 1,
+      "reqd": 0
+    },
+    {
+      "fieldname": "commission_percentage",
+      "fieldtype": "Percent",
+      "label": "Commission Percentage",
+      "in_list_view": 1,
+      "reqd": 0,
+      "default": "0",
+      "fetch_from": "shareholder.commission_percentage"
+    },
+    {
+      "fieldname": "commission_amount",
+      "fieldtype": "Currency",
+      "label": "Commission Amount",
+      "read_only": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Notes"
+    }
+  ],
+  "permissions": [],
+  "actions": [],
+  "links": [],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "allow_rename": 1,
+  "index_web_pages_for_search": 0,
+  "show_name_in_global_search": 0,
+  "editable_grid": 1
+}

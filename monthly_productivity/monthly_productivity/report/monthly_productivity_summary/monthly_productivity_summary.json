@@ -6,6 +6,13 @@
   "doctype": "Report",
   "filters": [
     {
+      "fieldname": "view_mode",
+      "fieldtype": "Select",
+      "label": "View Mode",
+      "options": "Summary View\nMonthly Detailed View\nDetailed Invoice View",
+      "default": "Summary View"
+    },
+    {
       "fieldname": "company",
       "fieldtype": "Link",
       "label": "Company",
@@ -14,18 +21,66 @@
     {
       "fieldname": "from_date",
       "fieldtype": "Date",
-      "label": "From Date"
+      "label": "From Date",
+      "depends_on": "eval:doc.view_mode===\"Summary View\""
     },
     {
       "fieldname": "to_date",
       "fieldtype": "Date",
-      "label": "To Date"
-    }
+      "label": "To Date",
+      "depends_on": "eval:doc.view_mode===\"Summary View\""
+    },
+    {
+      "fieldname": "sales_invoice",
+      "fieldtype": "Link",
+      "label": "Sales Invoice",
+      "options": "Sales Invoice",
+      "depends_on": "eval:doc.view_mode===\"Detailed Invoice View\""
+    },
+    {
+      "fieldname": "month",
+      "fieldtype": "Int",
+      "label": "Month (1-12)",
+      "depends_on": "eval:doc.view_mode===\"Monthly Detailed View\""
+    },
+    {
+      "fieldname": "year",
+      "fieldtype": "Int",
+      "label": "Year (e.g. 2025)",
+      "depends_on": "eval:doc.view_mode===\"Monthly Detailed View\""
+    },
+    {
+  "fieldname": "sales_person",
+  "fieldtype": "Link",
+  "label": "Sales Person",
+  "options": "Sales Person",
+  "in_list_view": 1,
+  "reqd": 1
+},
+{
+  "fieldname": "sales_person_commission",
+  "fieldtype": "Percent",
+  "label": "Sales Person Commission %",
+  "in_list_view": 1,
+  "reqd": 1
+},
+{
+  "fieldname": "total_commission_percentage",
+  "fieldtype": "Percent",
+  "label": "Total Commission Percentage",
+  "read_only": 1
+},
+{
+  "fieldname": "total_commission_amount",
+  "fieldtype": "Currency",
+  "label": "Total Commission Amount",
+  "read_only": 1
+}
   ],
   "idx": 0,
   "is_standard": "Yes",
   "letterhead": null,
-  "modified": "2025-07-17 12:00:00.000000",
+  "modified": "2025-08-13 00:00:00.000000",
   "modified_by": "Administrator",
   "module": "Monthly Productivity",
   "name": "Monthly Productivity Summary",
@@ -35,14 +90,8 @@
   "report_name": "Monthly Productivity Summary",
   "report_type": "Script Report",
   "roles": [
-    {
-      "role": "System Manager"
-    },
-    {
-      "role": "Sales Master Manager"
-    },
-    {
-      "role": "Purchase Master Manager"
-    }
+    { "role": "System Manager" },
+    { "role": "Sales Master Manager" },
+    { "role": "Purchase Master Manager" }
   ]
 }
